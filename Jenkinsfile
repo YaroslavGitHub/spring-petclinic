@@ -34,5 +34,27 @@ pipeline {
                 }
             }
         }
+        stage ('DeployToProduction') {
+    when {
+        branch 'main'
+    }
+    steps {
+        input 'Deploy to Production'
+        milestone(1)
+        withCredentials ([usernamePassword(credentialsId: 'webserver_login', usernameVariable: 'USERNAME', passwordVariable: 'USERPASS')]) {
+            script {
+                sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@${env.prod_ip} \"docker pull <DOCKER_HUB_USERNAME>/petclinic:${env.BUILD_NUMBER}\""
+                try {
+                   sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@${env.prod_ip} \"docker stop petclinic\""
+                   sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@${env.prod_ip} \"docker rm petclinic\""
+                } catch (err) {
+                    echo: 'caught error: $err'
+                }
+                sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@${env.prod_ip} \"docker run --restart always --name petclinic -p 8080:8080 -d <DOCKER_HUB_USERNAME>/petclinic:${env.BUILD_NUMBER}\""
+            }
+        }
+    }
+}
+
     }   
 }
